@@ -1,0 +1,9 @@
+@echo off
+echo === Delivery System ===
+cd /d D:\Projects\7.Delivery System
+echo Installing dependencies...
+python -m pip install -r requirements.txt -q
+echo Running migrations...
+python manage.py migrate
+echo Starting server...
+python manage.py runserver 8000

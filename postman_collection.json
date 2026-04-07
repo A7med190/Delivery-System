@@ -1,0 +1,34 @@
+{
+  "info": {"name": "Delivery System API", "description": "Django REST API for Food Delivery", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:8000/api/v1", "type": "string"},
+    {"key": "accessToken", "value": "", "type": "string"}
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {"name": "Register", "request": {"method": "POST", "url": "{{baseUrl}}/users/register/", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"email\": \"user@example.com\", \"password\": \"password123\", \"first_name\": \"John\", \"last_name\": \"Doe\", \"phone\": \"1234567890\"}"}}},
+        {"name": "Login", "request": {"method": "POST", "url": "{{baseUrl}}/auth/login/", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"email\": \"user@example.com\", \"password\": \"password123\"}"}}}
+      ]
+    },
+    {"name": "Restaurants", "item": [
+        {"name": "List Restaurants", "request": {"method": "GET", "url": "{{baseUrl}}/restaurants/", "header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}]}},
+        {"name": "Get Restaurant", "request": {"method": "GET", "url": "{{baseUrl}}/restaurants/{{restaurant_id}}/", "header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}]}}
+    ]},
+    {"name": "Orders", "item": [
+        {"name": "List Orders", "request": {"method": "GET", "url": "{{baseUrl}}/orders/", "header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}]}},
+        {"name": "Create Order", "request": {"method": "POST", "url": "{{baseUrl}}/orders/", "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}], "body": {"mode": "raw", "raw": "{\"restaurant\": \"\", \"items\": [{\"menu_item\": \"\", \"quantity\": 1}], \"delivery_address\": \"\"}"}}},
+        {"name": "Track Order", "request": {"method": "GET", "url": "{{baseUrl}}/orders/{{order_id}}/track/", "header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}]}}
+    ]},
+    {"name": "Delivery", "item": [
+        {"name": "Available Deliveries", "request": {"method": "GET", "url": "{{baseUrl}}/delivery/available/", "header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}]}},
+        {"name": "Accept Delivery", "request": {"method": "POST", "url": "{{baseUrl}}/delivery/accept/{{order_id}}/", "header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}]}},
+        {"name": "Update Status", "request": {"method": "PUT", "url": "{{baseUrl}}/delivery/status/{{delivery_id}}/", "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}], "body": {"mode": "raw", "raw": "{\"status\": \"delivered\"}"}}}
+    ]},
+    {"name": "Addresses", "item": [
+        {"name": "My Addresses", "request": {"method": "GET", "url": "{{baseUrl}}/addresses/", "header": [{"key": "Authorization", "value": "Bearer {{accessToken}}"}]}},
+        {"name": "Add Address", "request": {"method": "POST", "url": "{{baseUrl}}/addresses/", "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}], "body": {"mode": "raw", "raw": "{\"street\": \"123 Main St\", \"city\": \"New York\", \"state\": \"NY\", \"zip_code\": \"10001\", \"country\": \"USA\", \"is_default\": true}"}}}
+    ]}
+  ]
+}
