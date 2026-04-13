@@ -10,8 +10,8 @@ def delivery_status_changed(sender, instance, created, **kwargs):
         old_status = Delivery.objects.filter(pk=instance.pk).first()
         if old_status and old_status.status != instance.status:
             Notification.objects.create(
-                user=instance.order.user,
-                notification_type='delivery_update',
+                user=instance.order.customer,
+                type='delivery_update',
                 title=f'Delivery {instance.status.title()}',
                 message=f'Your order is now {instance.status}',
                 related_object_id=str(instance.id)

@@ -2,7 +2,14 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+
+from apps.core.health import run_health_checks
+
+
+def health_check_view(request):
+    return JsonResponse(run_health_checks())
 
 
 urlpatterns = [
@@ -15,9 +22,11 @@ urlpatterns = [
     path('api/delivery/', include('apps.delivery.urls')),
     path('api/reviews/', include('apps.reviews.urls')),
     path('api/notifications/', include('apps.notifications.urls')),
+    path('api/', include('apps.core.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    path('health/', health_check_view, name='health_check'),
 ]
 
 if settings.DEBUG:

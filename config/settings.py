@@ -25,6 +25,9 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'drf_spectacular',
+    'django_celery_beat',
+    'django_celery_results',
+    'channels',
     'apps.users',
     'apps.addresses',
     'apps.restaurants',
@@ -33,6 +36,7 @@ INSTALLED_APPS = [
     'apps.delivery',
     'apps.reviews',
     'apps.notifications',
+    'apps.core',
 ]
 
 MIDDLEWARE = [
@@ -45,9 +49,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.core.middleware.IdempotencyMiddleware',
+    'apps.core.middleware.RequestLoggingMiddleware',
 ]
-
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 ROOT_URLCONF = 'config.urls'
 
@@ -68,15 +72,21 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.pubsub.RedisPubSubChannelLayer',
+        'CONFIG': {
+            'hosts': [env('REDIS_URL', default='redis://127.0.0.1:6379/1')],
+        },
+    },
+}
 
 DATABASES = {
     'default': {
-        'ENGINE': env('DB_ENGINE', default='django.db.backends.postgresql'),
-        'NAME': env('DB_NAME', default='delivery_db'),
-        'USER': env('DB_USER', default='postgres'),
-        'PASSWORD': env('DB_PASSWORD', default='postgres'),
-        'HOST': env('DB_HOST', default='localhost'),
-        'PORT': env('DB_PORT', default='5432'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -155,6 +165,11 @@ CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://127.0.0.1:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_RESULT_EXTENDED = True
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_BEAT_TASK_LOGGER = 'celery.beat'
 
 CACHES = {
     'default': {
@@ -163,6 +178,65 @@ CACHES = {
     }
 }
 
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'
+
+HEALTH_CHECK = {
+    'DISK_USAGE_MAX': 90,
+    'MEMORY_MIN': 100,
+    'HEALTH_CHECK_TIMEOUT': 5,
+}
+
+SENTRY_DSN = env('SENTRY_DSN', default=None)
+SENTRY_ENVIRONMENT = env('SENTRY_ENVIRONMENT', default='development')
+SENTRY_TRACES_SAMPLE_RATE = env.float('SENTRY_TRACES_SAMPLE_RATE', default=0.1)
+SENTRY_PROFILES_SAMPLE_RATE = env.float('SENTRY_PROFILES_SAMPLE_RATE', default=0.1)
+
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+    
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=SENTRY_ENVIRONMENT,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+            RedisIntegration(),
+        ],
+        traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+        profiles_sample_rate=SENTRY_PROFILES_SAMPLE_RATE,
+        send_default_pii=False,
+        before_send=lambda event, hint: event if not DEBUG else None,
+    )
+
+WHITENOISE_MIMETYPES = {
+    '.js': 'application/javascript',
+    '.mjs': 'application/javascript',
+}
+WHITENOISE_ROOT = BASE_DIR / 'staticfiles'
+
+CIRCUIT_BREAKER = {
+    'DEFAULT_FAILURE_THRESHOLD': 5,
+    'DEFAULT_RECOVERY_TIMEOUT': 60,
+    'DEFAULT_EXPECTED_EXCEPTION': 'Exception',
+    'FAILURE_THRESHOLD': env.int('CIRCUIT_BREAKER_THRESHOLD', default=5),
+    'RECOVERY_TIMEOUT': env.int('CIRCUIT_BREAKER_TIMEOUT', default=60),
+}
+
+IDEMPOTENCY_KEY_HEADER = 'HTTP_X_IDEMPOTENCY_KEY'
+IDEMPOTENCY_EXPIRY_SECONDS = env.int('IDEMPOTENCY_EXPIRY_SECONDS', default=86400)
+IDEMPOTENCY_CACHE_PREFIX = 'idempotency:'
+
+OUTBOX_PROCESSOR_BATCH_SIZE = env.int('OUTBOX_BATCH_SIZE', default=100)
+OUTBOX_PROCESSOR_INTERVAL = env.int('OUTBOX_INTERVAL_SECONDS', default=5)
+
+WEBHOOK_DELIVERY_TIMEOUT = env.int('WEBHOOK_TIMEOUT', default=30)
+WEBHOOK_MAX_RETRIES = env.int('WEBHOOK_MAX_RETRIES', default=3)
+WEBHOOK_RETRY_DELAY = env.int('WEBHOOK_RETRY_DELAY', default=60)
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -170,6 +244,10 @@ LOGGING = {
         'verbose': {
             'format': '{levelname} {asctime} {module} {message}',
             'style': '{',
+        },
+        'json': {
+            '()': 'apps.core.logging.JsonFormatter',
+            'format': '%(asctime)s %(levelname)s %(name)s %(message)s',
         },
     },
     'handlers': {
@@ -182,13 +260,28 @@ LOGGING = {
         'handlers': ['console'],
         'level': 'INFO',
     },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'celery': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'apps.core': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
 }
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Debug Toolbar
 if DEBUG:
     INSTALLED_APPS += ['debug_toolbar']
     MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE

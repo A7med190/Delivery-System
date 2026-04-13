@@ -1,10 +1,8 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 from .views import ReviewViewSet
 
-router = DefaultRouter()
+router = SimpleRouter()
 router.register('', ReviewViewSet, basename='review')
 
-urlpatterns = [
-    path('', include(router.urls)),
-]
+urlpatterns = router.urls

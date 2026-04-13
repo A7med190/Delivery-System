@@ -1,10 +1,8 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 from .views import DeliveryViewSet
 
-router = DefaultRouter()
+router = SimpleRouter()
 router.register('', DeliveryViewSet, basename='delivery')
 
-urlpatterns = [
-    path('', include(router.urls)),
-]
+urlpatterns = router.urls

@@ -4,8 +4,13 @@ from .models import Order
 
 
 @receiver(post_save, sender=Order)
-def update_order_totals(sender, instance, created, **kwargs):
-    if created:
-        subtotal = sum(item.total_price for item in instance.items.all())
-        instance.subtotal = subtotal
-        instance.save()
+def create_delivery_record(sender, instance, created, **kwargs):
+    if created and instance.status != 'cancelled':
+        from apps.delivery.models import Delivery
+        Delivery.objects.get_or_create(
+            order=instance,
+            defaults={
+                'status': 'pending',
+                'tracking_number': f'DEL-{instance.order_number}'
+            }
+        )
